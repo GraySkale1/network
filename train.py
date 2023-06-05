@@ -2,8 +2,7 @@ import network.neuralnet as net
 from torch.nn import functional as F
 import torch
 from network import graphics
-from threading import Thread
-import time
+import os
 
 context = 500
 iterations = 1000
@@ -19,8 +18,9 @@ def convert_to_tensor(token_x):
     tensor_x = torch.FloatTensor(token_x)
     return tensor_x
 
+data_folder = os.path.join(os.path.dirname(__file__), 'data\\')
 
-with open('dataset.txt', 'r') as dataset:
+with open(data_folder + 'dataset.txt', 'r') as dataset:
     raw_data = dataset.read()
 
 #added spacer for dynamic context
