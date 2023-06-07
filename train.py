@@ -3,6 +3,15 @@ from torch.nn import functional as F
 import torch
 from network import graphics
 import os
+import configparser
+import tiktoken
+
+
+enc = tiktoken.get_encoding("cl100k_base")
+
+
+settings = configparser.ConfigParser()
+settings.read('network_settings.ini')
 
 context = 500
 iterations = 1000
@@ -14,10 +23,6 @@ loss_memory = 100
 epoch_length = 100
 epoch_print_interval = 50
 
-def convert_to_tensor(token_x):
-    tensor_x = torch.FloatTensor(token_x)
-    return tensor_x
-
 data_folder = os.path.join(os.path.dirname(__file__), 'data\\')
 
 with open(data_folder + 'dataset.txt', 'r') as dataset:
@@ -26,13 +31,14 @@ with open(data_folder + 'dataset.txt', 'r') as dataset:
 #added spacer for dynamic context
 raw_data = ' '*context + raw_data
 
-char_set = sorted(set(raw_data))
+#char_set = sorted(set(raw_data))
 
 
-token_encode = {j:i for i,j in enumerate(char_set)}
+#token_encode = {j:i for i,j in enumerate(char_set)}
 
-data = [token_encode[char] for char in raw_data]
-
+#data = [token_encode[char] for char in raw_data]
+data = enc.encode(raw_data)
+char_size = max(data)
 
 # x: 2d array of every possible sequensial list of characters of length 'context'
 # y: 1d array with the next character for each list in x
@@ -52,14 +58,16 @@ for i in range(len(data) - context): #update and print_interval seperate as prin
 
     if i % print_interval == 0:
         print(loading)
-
+token_y
 #converts token_y to tensor on seperate thread so loading screen works
 #token_y = Thread(target= convert_to_tensor, args=(token_y,)).start()
 
 
 batches = len(token_y)
 
-train = net.model(layers=(12,400,600,400,200,500,356,370), context_size=context, char_set_len=len(char_set), modelname='gaming')
+print('New or load model (n/l)')
+
+train = net.model(layers=(12,400,600,400,200,500,356,370), context_size=context, char_set_len=char_size, modelname='gaming')
 
 random_batches_index = torch.randint(0, batches - batch_size, (iterations,))
 
@@ -84,6 +92,8 @@ for i in range(iterations):
     loss_level.append(loss.item())
     
     loss.backward()
+
+    train.optimiser.step()
 
 
     if i % (iterations // epoch_length) and i != 0:

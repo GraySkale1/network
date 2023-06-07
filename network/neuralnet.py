@@ -102,10 +102,3 @@ def load(modelname:str):
     path = os.path.join(os.path.dirname(__file__), 'models\\')
     with open(path + modelname + '.model', 'r') as model:
         return pickle.load(model)
-
-
-            
-
-
-        
-
