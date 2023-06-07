@@ -13,7 +13,7 @@ enc = tiktoken.get_encoding("cl100k_base")
 settings = configparser.ConfigParser()
 settings.read('network_settings.ini')
 
-context = 500
+context = 10000
 iterations = 1000
 batch_size = 1000
 bar_length = 50
@@ -38,7 +38,7 @@ raw_data = ' '*context + raw_data
 
 #data = [token_encode[char] for char in raw_data]
 data = enc.encode(raw_data)
-char_size = max(data)
+char_size = max(data) + 1
 
 # x: 2d array of every possible sequensial list of characters of length 'context'
 # y: 1d array with the next character for each list in x
@@ -65,11 +65,11 @@ token_y
 
 batches = len(token_y)
 
-print('New or load model (n/l)')
+print('New or load model (n/l)') # <---- add way to do this
 
-train = net.model(layers=(12,400,600,400,200,500,356,370), context_size=context, char_set_len=char_size, modelname='gaming')
+train = net.model(layers=(12,1000,600,1200,250,500,800,370), context_size=context, char_set_len=char_size, modelname='gaming')
 
-random_batches_index = torch.randint(0, batches - batch_size, (iterations,))
+random_batches_index = torch.randint(0, batches - batch_size - 1, (iterations,))
 
 #shift line back
 print("\033[3A")
