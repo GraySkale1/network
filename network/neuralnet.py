@@ -99,6 +99,6 @@ class model(nn.Module):
             
 
 def load(modelname:str):
-    path = os.path.join(os.path.dirname(__file__), 'models\\')
-    with open(path + modelname + '.model', 'r') as model:
+    path = os.path.join(os.path.dirname(__file__), '..\models\\')
+    with open(path + modelname + '.model', 'rb') as model:
         return pickle.load(model)
