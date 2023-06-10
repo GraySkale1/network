@@ -7,21 +7,32 @@ import configparser
 import tiktoken
 
 
-enc = tiktoken.get_encoding("cl100k_base")
+
+
+'''choice = str(input('New or load model (n/l)'))
+if choice.lower() == 'l':
+    model_name = str(input('Name of model:\n'))
+    train = net.load(model_name)
+else:
+    raise NotImplementedError'''
 
 
 settings = configparser.ConfigParser()
 settings.read('network_settings.ini')
 
-context = 10000
-iterations = 1000
-batch_size = 1000
-bar_length = 50
-print_interval = 400
-save_interval = 100
-loss_memory = 100
-epoch_length = 100
-epoch_print_interval = 50
+context = int(settings['network']['context'])
+iterations = int(settings['backprop']['iterations'])
+batch_size = int(settings['network']['batch_size'])
+bar_length = int(settings['graphics']['bar_length'])
+print_interval = int(settings['graphics']['print_interval'])
+save_interval = int(settings['network']['save_interval'])
+loss_memory = int(settings['graphics']['loss_memory'])
+epoch_bar_length = int(settings['graphics']['epoch_bar_length'])
+epoch_print_interval = int(settings['graphics']['epoch_print_interval'])
+layer_set = [12,1000,600,1200,250,500,800,370]
+tokenisation_type = settings['network']['tokenisation_type']
+
+enc = tiktoken.get_encoding(tokenisation_type)
 
 data_folder = os.path.join(os.path.dirname(__file__), 'data\\')
 
@@ -65,9 +76,7 @@ token_y
 
 batches = len(token_y)
 
-print('New or load model (n/l)') # <---- add way to do this
-
-train = net.model(layers=(12,1000,600,1200,250,500,800,370), context_size=context, char_set_len=char_size, modelname='gaming')
+train = net.model(layers=layer_set, context_size=context, char_set_len=char_size, modelname='gaming')
 
 random_batches_index = torch.randint(0, batches - batch_size - 1, (iterations,))
 
@@ -77,7 +86,7 @@ print(f'Current Epoch Length: {iterations}')
 
 #stores loss for average
 loss_level = []
-epoch = graphics.progress(epoch_length)
+epoch = graphics.progress(epoch_bar_length)
 for i in range(iterations):
     #create batch
     batch_x = token_x[random_batches_index[i]:random_batches_index[i] + batch_size]
@@ -96,7 +105,7 @@ for i in range(iterations):
     train.optimiser.step()
 
 
-    if i % (iterations // epoch_length) and i != 0:
+    if i % (iterations // epoch_bar_length) and i != 0:
         average = sum(loss_level) / len(loss_level)
         epoch.update(ex_info=f'loss: {average}')
 
@@ -109,4 +118,5 @@ for i in range(iterations):
     
     if len(loss_level) > loss_memory:
         loss_level.pop(0)
+train.save()
 
