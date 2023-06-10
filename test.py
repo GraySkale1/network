@@ -16,7 +16,7 @@ model_name = str(input('Name of model:\n'))
 test = net.load(model_name)
 
 
-data = enc.encode('\n') * context
+data = enc.encode('!') * context
 
 
 for i in range(iterations):

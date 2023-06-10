@@ -6,8 +6,7 @@ import os
 import configparser
 import tiktoken
 
-
-
+CUDA_LAUNCH_BLOCKING = 1
 
 '''choice = str(input('New or load model (n/l)'))
 if choice.lower() == 'l':
@@ -16,6 +15,7 @@ if choice.lower() == 'l':
 else:
     raise NotImplementedError'''
 
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 settings = configparser.ConfigParser()
 settings.read('network_settings.ini')
@@ -29,8 +29,9 @@ save_interval = int(settings['network']['save_interval'])
 loss_memory = int(settings['graphics']['loss_memory'])
 epoch_bar_length = int(settings['graphics']['epoch_bar_length'])
 epoch_print_interval = int(settings['graphics']['epoch_print_interval'])
-layer_set = [12,1000,600,1200,250,500,800,370]
+layer_set = [5,100,200,100]
 tokenisation_type = settings['network']['tokenisation_type']
+epoch_left = iterations
 
 enc = tiktoken.get_encoding(tokenisation_type)
 
@@ -49,7 +50,7 @@ raw_data = ' '*context + raw_data
 
 #data = [token_encode[char] for char in raw_data]
 data = enc.encode(raw_data)
-char_size = max(data) + 1
+char_size = len(set(data))
 
 # x: 2d array of every possible sequensial list of characters of length 'context'
 # y: 1d array with the next character for each list in x
@@ -77,6 +78,7 @@ token_y
 batches = len(token_y)
 
 train = net.model(layers=layer_set, context_size=context, char_set_len=char_size, modelname='gaming')
+train = train.to(device)
 
 random_batches_index = torch.randint(0, batches - batch_size - 1, (iterations,))
 
@@ -87,14 +89,18 @@ print(f'Current Epoch Length: {iterations}')
 #stores loss for average
 loss_level = []
 epoch = graphics.progress(epoch_bar_length)
+print(epoch)
 for i in range(iterations):
+    train.optimiser.zero_grad()
     #create batch
     batch_x = token_x[random_batches_index[i]:random_batches_index[i] + batch_size]
     batch_y = token_y[random_batches_index[i]:random_batches_index[i] + batch_size]
     batch_y = torch.LongTensor(batch_y)
+    batch_x = torch.LongTensor(batch_x)
 
     #feed forward
-    logits = train.propagate(batch_x)
+    with torch.profiler.profile(profile_memory=True, record_shapes=True) as prof:
+        logits = train.propagate(batch_x)
     
     loss = F.cross_entropy(logits, batch_y)
 
@@ -104,12 +110,16 @@ for i in range(iterations):
 
     train.optimiser.step()
 
+    del logits
 
     if i % (iterations // epoch_bar_length) and i != 0:
         average = sum(loss_level) / len(loss_level)
         epoch.update(ex_info=f'loss: {average}')
 
-    if i % (iterations // epoch_print_interval) and i != 0:
+    if i % (iterations // epoch_print_interval) == 0:
+        print("\033[1A")
+        print(f'Current Epoch Length: {epoch_left}')
+        epoch_left -= epoch_print_interval
         print(epoch)
 
     train.optimiser.step()

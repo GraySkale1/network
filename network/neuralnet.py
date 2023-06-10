@@ -6,12 +6,13 @@ import os.path
 
 
 class model(nn.Module):
-    #                 self.classes
+    #                 internal classes
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     class layer(nn.Module):
         def __init__(self, x, y, normalisation=False):
-            self.weight = torch.randn((x , y), requires_grad=True)
-            self.bias = torch.randn(y, requires_grad=True)
+            processor = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+            self.weight = torch.randn((x , y), requires_grad=True, device=processor)
+            self.bias = torch.randn(y, requires_grad=True, device=processor)
             self.normal = normalisation
 
         def __call__(self):
@@ -19,16 +20,19 @@ class model(nn.Module):
 
 
         def feed(self, x):
-            out = x@self.weight + self.bias
+            x = x@self.weight + self.bias
+
+
 
             if self.normal == True:
-                return torch.sigmoid(out)
+                return torch.sigmoid(x)
             else:
-                return out
+                return x
             
     class embedding(nn.Module):
         def __init__(self, x, y, matrix_view_y, normalisation=False):
-            self.weight = torch.randn((x, y), requires_grad=True)
+            processor = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+            self.weight = torch.randn((x, y), requires_grad=True, device=processor)
             self.normal = normalisation
             self.view_y = matrix_view_y
 
@@ -37,12 +41,12 @@ class model(nn.Module):
             return [self.weight]
         
         def feed(self, x): #x must be tensor of ints
-            out = (self.weight[x]).view(-1, self.view_y)
+            x = (self.weight[x]).view(-1, self.view_y)
 
             if self.normal == True:
-                return torch.sigmoid(out)
+                return torch.sigmoid(x)
             else:
-                return out
+                return x
     
     #             class atributes
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -85,10 +89,12 @@ class model(nn.Module):
         #creates optimiser object
         self.optimiser = torch.optim.SGD(self.parameter, lr=float(settings['backprop']['lr']), dampening=0.5)
 
-    def propagate(self, x): #iterates through all layers 
+
+    def propagate(self, x):
+        x = x.to('cuda:0') # move input data to CUDA device
         for layer in self.param_obj:
-            temp = layer.feed(x)
-            x = temp
+            x = layer.feed(x)
+            torch.cuda.empty_cache() # release unused memory
         return x
     
     def save(self):
