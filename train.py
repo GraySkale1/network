@@ -6,16 +6,11 @@ import os
 import configparser
 import tiktoken
 
-CUDA_LAUNCH_BLOCKING = 1
-
-'''choice = str(input('New or load model (n/l)'))
-if choice.lower() == 'l':
-    model_name = str(input('Name of model:\n'))
-    train = net.load(model_name)
-else:
-    raise NotImplementedError'''
-
-device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+CUDA_LAUNCH_BLOCKING=1
+# Check if CUDA is available
+if torch.cuda.is_available():
+    # Initialize CUDA
+    device = torch.device("cuda")
 
 settings = configparser.ConfigParser()
 settings.read('network_settings.ini')
@@ -50,7 +45,7 @@ raw_data = ' '*context + raw_data
 
 #data = [token_encode[char] for char in raw_data]
 data = enc.encode(raw_data)
-char_size = len(set(data))
+char_size = max(set(data))
 
 # x: 2d array of every possible sequensial list of characters of length 'context'
 # y: 1d array with the next character for each list in x
@@ -77,8 +72,7 @@ token_y
 
 batches = len(token_y)
 
-train = net.model(layers=layer_set, context_size=context, char_set_len=char_size, modelname='gaming')
-train = train.to(device)
+train = net.model(layers=layer_set, context_size=context, char_set_len=char_size, modelname='gaming').to(device)
 
 random_batches_index = torch.randint(0, batches - batch_size - 1, (iterations,))
 
@@ -95,16 +89,16 @@ for i in range(iterations):
     #create batch
     batch_x = token_x[random_batches_index[i]:random_batches_index[i] + batch_size]
     batch_y = token_y[random_batches_index[i]:random_batches_index[i] + batch_size]
-    batch_y = torch.LongTensor(batch_y)
-    batch_x = torch.LongTensor(batch_x)
+    batch_y = torch.LongTensor(batch_y).to(device)
+    batch_x = torch.LongTensor(batch_x).to(device)
 
     #feed forward
-    with torch.profiler.profile(profile_memory=True, record_shapes=True) as prof:
-        logits = train.propagate(batch_x)
+
+    logits = train.propagate(batch_x)
     
     loss = F.cross_entropy(logits, batch_y)
 
-    loss_level.append(loss.item())
+    loss_level.append(loss.item().cpu())
     
     loss.backward()
 
@@ -117,7 +111,7 @@ for i in range(iterations):
         epoch.update(ex_info=f'loss: {average}')
 
     if i % (iterations // epoch_print_interval) == 0:
-        print("\033[1A")
+        print("\033[2A")
         print(f'Current Epoch Length: {epoch_left}')
         epoch_left -= epoch_print_interval
         print(epoch)
