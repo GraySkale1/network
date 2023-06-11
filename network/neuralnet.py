@@ -1,101 +1,60 @@
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 import configparser
 import pickle
 import os.path
+import torch.cuda
 
 
 class model(nn.Module):
-    #                 internal classes
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    class layer(nn.Module):
-        def __init__(self, x, y, normalisation=False):
-            processor = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-            self.weight = torch.randn((x , y), requires_grad=True, device=processor)
-            self.bias = torch.randn(y, requires_grad=True, device=processor)
-            self.normal = normalisation
-
-        def __call__(self):
-            return [self.weight, self.bias]
-
-
-        def feed(self, x):
-            x = x@self.weight + self.bias
-
-
-
-            if self.normal == True:
-                return torch.sigmoid(x)
-            else:
-                return x
-            
-    class embedding(nn.Module):
-        def __init__(self, x, y, matrix_view_y, normalisation=False):
-            processor = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-            self.weight = torch.randn((x, y), requires_grad=True, device=processor)
-            self.normal = normalisation
-            self.view_y = matrix_view_y
-
-
-        def __call__(self):
-            return [self.weight]
-        
-        def feed(self, x): #x must be tensor of ints
-            x = (self.weight[x]).view(-1, self.view_y)
-
-            if self.normal == True:
-                return torch.sigmoid(x)
-            else:
-                return x
-    
-    #             class atributes
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def __init__(self, layers:tuple, context_size:int, char_set_len:int, modelname:str):
+    def __init__(self, layers:list, context_size:int, char_set_len:int, modelname:str):
         super(model, self).__init__()
 
         settings = configparser.ConfigParser()
         settings.read('network_settings.ini')
 
-        self.param_obj = [] #holds each layer's object
-
         self.name = modelname
 
-        #embed + first layer need to be defined specifically due to matrix mult compatibility
-        self.param_obj.append(self.embedding(char_set_len, layers[0], matrix_view_y=context_size*layers[0], normalisation=True))
-        self.param_obj.append(self.layer(context_size*layers[0], layers[1], normalisation=True))
-
-        for i, dimension in enumerate(layers):
-            if i <= 1: #layers used for embed + first layer are skipped
-                continue
-
-            #[layer-1] used for x so that layers fit in order
-            self.param_obj.append(self.layer(layers[i-1], dimension, normalisation=True))
-
-        #final matrix must have rows of length of 'char_set_len' for cross entropy later
-        self.param_obj.append(self.layer(layers[-1], char_set_len, normalisation=False))
-
+        self.context = context_size
+        self.flatten_size = context_size*layers[0]
         
 
-        self.parameter = []
+        self.layers = nn.ModuleList()
 
-        for obj in self.param_obj:
-            self.parameter.append(obj.weight)
-            if isinstance(obj, model.layer):
-                self.parameter.append(obj.bias)
+        #creates first layers that embedd input values
+        self.embedding = nn.Embedding(num_embeddings=char_set_len, embedding_dim=layers[0])
 
-        for matrix in self.parameter:
-            nn.parameter.Parameter(matrix, requires_grad=True) 
+        
+        #linear gives weight and bias in one
+        layer = nn.Linear(context_size*layers[0], layers[1], bias=True)
+        self.layers.append(layer)
 
-        #creates optimiser object
-        self.optimiser = torch.optim.SGD(self.parameter, lr=float(settings['backprop']['lr']), dampening=0.5)
+        #adds layers to nn.Modulelist
+        for i in range(len(layers) - 2):
+            layer = nn.Linear(layers[i+1], layers[i+2], bias=True)
+            self.layers.append(layer)
 
+        self.final_layer = nn.Linear(layers[-1], char_set_len, bias=True)
+
+        self.optimiser = torch.optim.SGD(params=self.parameters(), lr=float(settings['backprop']['lr']))
 
     def propagate(self, x):
-        x = x.to('cuda:0') # move input data to CUDA device
-        for layer in self.param_obj:
-            x = layer.feed(x)
-            torch.cuda.empty_cache() # release unused memory
-        return x
+        #moves x to GPU
+        embed = self.embedding(x)
+        #flattens 3d matrix to 2d
+        h = torch.sigmoid(embed.view(-1, self.flatten_size))
+        del embed
+
+        for layer in self.layers:
+            h = torch.sigmoid(F.relu(layer(h)))
+
+        output = self.final_layer(h)
+        del h
+        #release excess memory
+        #torch.cuda.empty_cache()
+
+        return output
     
     def save(self):
         path = os.path.join(os.path.dirname(__file__), '..\models\\')
