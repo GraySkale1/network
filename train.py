@@ -5,6 +5,7 @@ from network import graphics
 import os
 import configparser
 import tiktoken
+import numpy as np
 
 CUDA_LAUNCH_BLOCKING=1
 # Check if CUDA is available
@@ -24,7 +25,7 @@ save_interval = int(settings['network']['save_interval'])
 loss_memory = int(settings['graphics']['loss_memory'])
 epoch_bar_length = int(settings['graphics']['epoch_bar_length'])
 epoch_print_interval = int(settings['graphics']['epoch_print_interval'])
-layer_set = [5,100,200,100]
+layer_set = [5,1000,500,700,800]
 tokenisation_type = settings['network']['tokenisation_type']
 epoch_left = iterations
 
@@ -66,8 +67,8 @@ for i in range(len(data) - context): #update and print_interval seperate as prin
     if i % print_interval == 0:
         print(loading)
 
-token_x = torch.LongTensor(token_x)
-token_y = torch.LongTensor(token_y)
+token_x = torch.tensor(token_x, dtype=torch.int64)
+token_y = torch.tensor(token_y, dtype=torch.int64)
 #converts token_y to tensor on seperate thread so loading screen works
 #token_y = Thread(target= convert_to_tensor, args=(token_y,)).start()
 

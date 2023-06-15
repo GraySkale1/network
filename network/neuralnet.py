@@ -23,31 +23,31 @@ class model(nn.Module):
         self.layers = nn.ModuleList()
 
         #creates first layers that embedd input values
-        self.embedding = nn.Embedding(num_embeddings=char_set_len, embedding_dim=layers[0])
+        self.embedding = nn.Embedding(num_embeddings=char_set_len, embedding_dim=layers[0], dtype=torch.float64)
         print(f'emebdding --> {char_set_len, layers[0]}')
 
         
         #linear gives weight and bias in one
-        layer = nn.Linear(context_size*layers[0], layers[1], bias=True)
+        layer = nn.Linear(context_size*layers[0], layers[1], bias=True, dtype=torch.float64)
         self.layers.append(layer)
 
         #adds layers to nn.Modulelist
         for i in range(len(layers) - 2):
-            layer = nn.Linear(layers[i+1], layers[i+2], bias=True)
+            layer = nn.Linear(layers[i+1], layers[i+2], bias=True, dtype=torch.float64)
             self.layers.append(layer)
 
-        self.final_layer = nn.Linear(layers[-1], char_set_len, bias=True)
+        self.final_layer = nn.Linear(layers[-1], char_set_len, bias=True, dtype=torch.float64)
 
         self.optimiser = torch.optim.SGD(params=self.parameters(), lr=float(settings['backprop']['lr']))
     def propagate(self, x):
         embed = self.embedding(x)
-        
+
         #flattens 3d matrix to 2d
-        h = torch.sigmoid(embed.view(-1, self.flatten_size))
+        h = F.relu(embed.view(-1, self.flatten_size))
         del embed
 
         for layer in self.layers:
-            h = torch.sigmoid(F.relu(layer(h)))
+            h = F.relu(layer(h))
 
         output = self.final_layer(h)
         del h
