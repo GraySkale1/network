@@ -24,6 +24,7 @@ class model(nn.Module):
 
         #creates first layers that embedd input values
         self.embedding = nn.Embedding(num_embeddings=char_set_len, embedding_dim=layers[0])
+        print(f'emebdding --> {char_set_len, layers[0]}')
 
         
         #linear gives weight and bias in one
@@ -38,10 +39,9 @@ class model(nn.Module):
         self.final_layer = nn.Linear(layers[-1], char_set_len, bias=True)
 
         self.optimiser = torch.optim.SGD(params=self.parameters(), lr=float(settings['backprop']['lr']))
-
     def propagate(self, x):
-        #moves x to GPU
         embed = self.embedding(x)
+        
         #flattens 3d matrix to 2d
         h = torch.sigmoid(embed.view(-1, self.flatten_size))
         del embed
