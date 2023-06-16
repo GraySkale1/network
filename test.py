@@ -3,6 +3,9 @@ import torch
 import tiktoken
 import configparser
 
+
+device = 'cuda:0' if torch.cuda.is_available else 'cpu'
+
 settings = configparser.ConfigParser()
 settings.read('network_settings.ini')
 
@@ -33,7 +36,7 @@ data = token_text[random_batches_index[0] - context + len(inp):random_batches_in
 
 
 for i in range(iterations):
-    test_set = torch.tensor(data)
+    test_set = torch.tensor(data).to(device)
     #returns the index of the highest value in the logit tensor
     logit = torch.argmax(torch.sigmoid(test.propagate(test_set)))
     print(logit)

@@ -39,6 +39,7 @@ class model(nn.Module):
         self.final_layer = nn.Linear(layers[-1], char_set_len, bias=True, dtype=torch.float64)
 
         self.optimiser = torch.optim.SGD(params=self.parameters(), lr=float(settings['backprop']['lr']))
+
     def propagate(self, x):
         embed = self.embedding(x)
 
@@ -52,7 +53,7 @@ class model(nn.Module):
         output = self.final_layer(h)
         del h
         #release excess memory
-        #torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
         return output
     

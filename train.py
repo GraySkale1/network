@@ -5,13 +5,18 @@ from network import graphics
 import os
 import configparser
 import tiktoken
-import numpy as np
+import os
 
-CUDA_LAUNCH_BLOCKING=1
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = 'max_split_size_mb:512'
+
+
 # Check if CUDA is available
 if torch.cuda.is_available():
     # Initialize CUDA
     device = torch.device("cuda")
+
+    cuda_id = torch.cuda.current_device()
+    print(torch.cuda.get_device_name(cuda_id))
 
 settings = configparser.ConfigParser()
 settings.read('network_settings.ini')
@@ -28,6 +33,7 @@ epoch_print_interval = int(settings['graphics']['epoch_print_interval'])
 layer_set = [5,1000,500,700,800]
 tokenisation_type = settings['network']['tokenisation_type']
 epoch_left = iterations
+
 
 enc = tiktoken.get_encoding(tokenisation_type)
 
@@ -75,7 +81,7 @@ token_y = torch.tensor(token_y, dtype=torch.int64)
 
 batches = len(token_y)
 
-train = net.model(layers=layer_set, context_size=context, char_set_len=char_size, modelname='gaming')
+train = net.model(layers=layer_set, context_size=context, char_set_len=char_size, modelname='gaming').to(device)
 
 random_batches_index = torch.randint(0, batches - batch_size - 1, (iterations,))
 
@@ -88,16 +94,17 @@ loss_level = []
 epoch = graphics.progress(epoch_bar_length)
 print(epoch)
 for i in range(iterations):
-    train.optimiser.zero_grad()
     #create batch
-    batch_x = token_x[random_batches_index[i]:random_batches_index[i] + batch_size]
-    batch_y = token_y[random_batches_index[i]:random_batches_index[i] + batch_size]
+    batch_x = token_x[random_batches_index[i]:random_batches_index[i] + batch_size].to(device)
+    batch_y = token_y[random_batches_index[i]:random_batches_index[i] + batch_size].to(device)
 
     #feed forward
 
     logits = train.propagate(batch_x)
     
     loss = F.cross_entropy(logits, batch_y)
+
+    torch.cuda.empty_cache()
 
     loss_level.append(loss.item())
     
